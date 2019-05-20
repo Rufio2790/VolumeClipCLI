@@ -35,12 +35,19 @@ def main():
     parser.add_argument('-s', '--surf', type=str, help='Surface path model', required=True)
     parser.add_argument('--inside', type=bool, help='True: Keep volume INSIDE (True) or OUTSIDE (False) the model; '
                                                'default is True ', required=True)
-    parser.add_argument('-o', '--output', type=str, help='Output path', required=True)
+    parser.add_argument('-o', '--output', type=str, help='Output path (mha format)', required=True)
     parser.add_argument('-t', '--transform', type=str, help='Transform to apply to the surfaces before clipping '
                                                             '(optional')
 
     logging.info("Parsing arguments...")
     args = parser.parse_args()
+
+    # TODO(Limitation: saving in Nifti loose spatial information)
+    out_file_name = os.path.basename(args.output)
+    name, ext = out_file_name.split('.')
+    if ext != 'mha':
+        raise(IOError, 'Output file name should be a MetaImage -> mha format')
+
     load_and_process(args.image, args.surf, args.output, inside_bool=args.inside, transform_path=args.transform)
 
 
