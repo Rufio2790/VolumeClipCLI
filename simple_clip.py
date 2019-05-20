@@ -9,9 +9,9 @@ import SimpleITK as sitk
 import argparse
 import numpy as np
 
-import lib.clip as clip
-import lib.read_and_write as rw
-import lib.transforms as trsf
+import core.clip as clip
+import core.read_and_write as rw
+import core.transforms as trsf
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
