@@ -61,15 +61,15 @@ def load_and_process(image_path, surface_path, output_path, inside_bool=False, t
         c2r = np.identity(4)
         c2r[:3, :3] = t[:9].reshape(3, 3)
         c2r[:3, 3] = t[9:]
-        print('Reading centered2ref')
-        print(c2r)
+        # print('Reading centered2ref')
+        # print(c2r)
         c2r = np.dot(np.linalg.inv(c2r), ras2lps)
         c2r = np.dot(ras2lps, c2r)
-        print('Transforming to RAS')
-        print(c2r)
+        # print('Transforming to RAS')
+        # print(c2r)
         surf = trsf.transform_poly_data(surf, c2r)
 
-        rw.write_vtk_poly_data(surf, os.path.join(os.path.dirname(output_path), "trsf_surf.vtk"))
+        # rw.write_vtk_poly_data(surf, os.path.join(os.path.dirname(output_path), "trsf_surf.vtk"))
 
     # getting image transformation matrix
     ras2ijk = trsf.get_ras2ijk(sitk_im)
