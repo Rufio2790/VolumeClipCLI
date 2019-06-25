@@ -100,15 +100,19 @@ def load_and_process(image_path, surface_path, output_path, inside_bool=False, t
         sp_mat[0, 0] = spacing[0]
         sp_mat[1, 1] = spacing[1]
         sp_mat[2, 2] = spacing[2]
+        logging.debug(sp_mat)
         # getting image array -> Axis swap needed for convertion ijk to kji
         arr = sitk.GetArrayFromImage(out_image)
         logging.debug(arr.shape)
         arr = np.swapaxes(arr, 2, 0)
         logging.debug(arr.shape)
+
         # setting spacing in transform image
-        image_lps[:3, :3] = np.dot(sp_mat, image_lps[:3, :3])
+        new_rot = np.identity(4)
+        new_rot[:3, :3] = np.dot(image_lps[:3, :3], sp_mat)
+        new_rot[:3, 3] = image_lps[:3, 3]
         # converting to RAS
-        affine_trsf = np.dot(ras2lps, image_lps)
+        affine_trsf = np.dot(ras2lps, new_rot)
         nifti_out = nib.Nifti1Image(arr, affine_trsf)
         logging.debug(affine_trsf)
         logging.info("Saving image...")
