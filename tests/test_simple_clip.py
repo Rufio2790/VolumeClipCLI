@@ -19,6 +19,9 @@ class TestSimpleClip(unittest.TestCase):
         load_and_process(self.image_path, self.surf_not_centered_path, os.path.join(data_path, 'test_result.mha'),
                          inside_bool=True, transform_path=self.transform_path)
 
+    def test_nifti_output(self):
+        load_and_process(self.image_path, self.surf_path, os.path.join(data_path, 'test_result.nii.gz'),
+                         inside_bool=True)
 
 if __name__ == '__main__':
     unittest.main()

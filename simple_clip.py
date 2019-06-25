@@ -8,6 +8,7 @@ import logging
 import SimpleITK as sitk
 import argparse
 import numpy as np
+import nibabel as nib
 
 import core.clip as clip
 import core.read_and_write as rw
@@ -25,6 +26,7 @@ root.addHandler(handler)
 ras2lps = np.identity(4)
 ras2lps[0, 0] = -1
 ras2lps[1, 1] = -1
+lps2ras = np.linalg.inv(ras2lps)
 
 def main():
 
@@ -42,17 +44,11 @@ def main():
     logging.info("Parsing arguments...")
     args = parser.parse_args()
 
-    # TODO(Limitation: saving in Nifti loose spatial information)
-    out_file_name = os.path.basename(args.output)
-    name, ext = out_file_name.split('.')
-    if ext != 'mha':
-        raise(IOError, 'Output file name should be a MetaImage -> mha format')
-
     load_and_process(args.image, args.surf, args.output, inside_bool=args.inside, transform_path=args.transform)
 
 
-
 def load_and_process(image_path, surface_path, output_path, inside_bool=False, transform_path=None):
+
     logging.info("Reading images and surfaces...")
     # loading images as itk and vtk volume
     sitk_im, vtk_im = rw.load_images(image_path)
@@ -68,15 +64,11 @@ def load_and_process(image_path, surface_path, output_path, inside_bool=False, t
         c2r = np.identity(4)
         c2r[:3, :3] = t[:9].reshape(3, 3)
         c2r[:3, 3] = t[9:]
-        # print('Reading centered2ref')
-        # print(c2r)
+        logging.debug('Reading centered2ref')
+        logging.debug(c2r)
         c2r = np.dot(np.linalg.inv(c2r), ras2lps)
         c2r = np.dot(ras2lps, c2r)
-        # print('Transforming to RAS')
-        # print(c2r)
         surf = trsf.transform_poly_data(surf, c2r)
-
-        # rw.write_vtk_poly_data(surf, os.path.join(os.path.dirname(output_path), "trsf_surf.vtk"))
 
     # getting image transformation matrix
     ras2ijk = trsf.get_ras2ijk(sitk_im)
@@ -94,15 +86,42 @@ def load_and_process(image_path, surface_path, output_path, inside_bool=False, t
 
     # reading the same image with itk
     out_image = sitk.ReadImage(temp_file_path)
-    # applying correct spatial informations (LPS system)
-    image_lps = trsf.get_sitkImg_transform(sitk_im)
-    out_image.SetSpacing(sitk_im.GetSpacing())
-    out_image.SetDirection(image_lps[:3, :3].ravel())
-    out_image.SetOrigin(image_lps[:3, 3])
 
-    logging.info("Saving image...")
-    # writing the clipped image
-    sitk.WriteImage(out_image, output_path)
+    out_name_list = output_path.split('.')
+    is_nifti_format = out_name_list[-1] == 'gz' or out_name_list[-1] == 'nii'
+
+    # Get Sitk Image transform (LPS System)
+    image_lps = trsf.get_sitkImg_transform(sitk_im)
+
+    if is_nifti_format:
+        # Nifti format wants the spacing to be included in the transform image
+        spacing = sitk_im.GetSpacing()
+        sp_mat = np.identity(3)
+        sp_mat[0, 0] = spacing[0]
+        sp_mat[1, 1] = spacing[1]
+        sp_mat[2, 2] = spacing[2]
+        # getting image array -> Axis swap needed for convertion ijk to kji
+        arr = sitk.GetArrayFromImage(out_image)
+        logging.debug(arr.shape)
+        arr = np.swapaxes(arr, 2, 0)
+        logging.debug(arr.shape)
+        # setting spacing in transform image
+        image_lps[:3, :3] = np.dot(sp_mat, image_lps[:3, :3])
+        # converting to RAS
+        affine_trsf = np.dot(ras2lps, image_lps)
+        nifti_out = nib.Nifti1Image(arr, affine_trsf)
+        logging.debug(affine_trsf)
+        logging.info("Saving image...")
+        nib.save(nifti_out, output_path)
+
+    else:
+        out_image.SetSpacing(sitk_im.GetSpacing())
+        out_image.SetDirection(image_lps[:3, :3].ravel())
+        out_image.SetOrigin(image_lps[:3, 3])
+        logging.info("Saving image...")
+
+        # writing the clipped image
+        sitk.WriteImage(out_image, output_path)
 
     # removing temporary image
     os.remove(temp_file_path)
